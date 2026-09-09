@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this NI Multi-Channel Recorder in research or software work, please cite the software and credit the author."
+title: "NI Multi-Channel Recorder for MATLAB"
+type: software
+authors:
+  - family-names: "Shankar"
+    given-names: "Vinay"
+    email: "vinay@tfaworld.org"
+version: "4.0.3"
+date-released: "2026-09-09"
+url: "https://github.com/vinayrshankar/NIDAQ"
+repository-code: "https://github.com/vinayrshankar/NIDAQ"
+license: "GPL-2.0"
