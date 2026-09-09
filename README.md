@@ -1,65 +1,100 @@
 # NI Multi-Channel Recorder for MATLAB
 
-A configurable MATLAB acquisition GUI for recording multiple analog channels from National Instruments DAQ hardware while displaying **each enabled channel in its own independent live plot window**.
+A configurable MATLAB data-acquisition application for National Instruments NI-DAQmx hardware, with **one independent live signal window per enabled analog input channel**, persistent channel configurations, UTC millisecond timestamps, and a session-specific **Baseline / TARE** workflow.
 
-**Current version:** 4.0.2  
-**Author:** Vinay Shankar  
-**Website:** https://tfaworld.org/  
-**Email:** vinay@tfaworld.org  
-**License:** GPL-2.0
+**Current version:** 4.0.3  
+**Author and maintainer:** **Vinay Shankar**  
+**Email:** [vinay@tfaworld.org](mailto:vinay@tfaworld.org)  
+**Website:** <https://tfaworld.org/>  
+**GitHub:** <https://github.com/vinayrshankar/NIDAQ>  
+**License:** GNU General Public License v2.0 (GPL-2.0)
 
-## Overview
+> This recorder and its documentation are authored and maintained by **Vinay Shankar**. Please preserve the author/contact information when redistributing or modifying the project under the terms of GPL-2.0.
 
-This project was built for laboratory data-acquisition workflows that need a simple MATLAB interface for configuring, monitoring, and saving multiple NI-DAQ input channels without overlaying signals on a shared plot.
+## What version 4.0.3 adds
 
-Version 4 uses an intentionally independent-window architecture:
+Version 4.0.3 builds on the independent-window V4 architecture and adds a dedicated **Baseline / TARE** screen.
 
-- the control/configuration window contains no signal axes;
-- every enabled channel opens in its own `uifigure`;
-- each signal window contains exactly one `uiaxes` and one plot line;
-- each channel has independent label, unit, scaling, offset, terminal configuration, and Y-axis settings;
-- acquisition settings can be saved and restored;
-- recorded data are saved with a UTC millisecond time column.
+- The control/configuration window contains no signal axes.
+- Every enabled channel opens in its own independent `uifigure`.
+- Each signal window contains exactly one `uiaxes` and one plot line.
+- Channels can have independent labels, units, calibration scale/offset, terminal configuration, Auto-Y state, and manual Y limits.
+- Channel configurations can be saved, loaded, and automatically restored.
+- MATLAB stores only one exported time column: `SampleStartUTC_ms`.
+- TARE uses the mean of a recent baseline window rather than a single instantaneous sample.
+- TARE is kept separate from calibration and is session-specific.
+- MAT-file metadata records calibration parameters, TARE parameters, version, author, contact information, and project repository.
 
 ## Main program
 
 Run:
 
 ```matlab
-NI_MultiChannel_Recorder_v4_02
+NI_MultiChannel_Recorder_v4_03
 ```
 
-The current source file is:
+Source file:
 
 ```text
-NI_MultiChannel_Recorder_v4_02.m
+NI_MultiChannel_Recorder_v4_03.m
 ```
 
-Older README material referring to `v4_01` is retained only as a historical text file and should not be used as the launch instruction for the current version.
+The previous `NI_MultiChannel_Recorder_v4_02.m` is retained for version history. New work should use V4.0.3 unless an older workflow must be reproduced.
 
-## Requirements
+## Documentation
 
-### Required
+- **[Installation and software prerequisites](docs/INSTALLATION.md)**
+- **[Hardware prerequisites and bill of materials](docs/HARDWARE_SETUP.md)**
+- **[Cabling, BNC connections, grounding, and signal-chain guidance](docs/CABLING_AND_WIRING.md)**
+- **[Baseline / TARE workflow](docs/BASELINE_TARE.md)**
+- **[Troubleshooting and diagnostics](docs/TROUBLESHOOTING.md)**
+- **[Example channel configurations](docs/EXAMPLE_CONFIGURATIONS.md)**
+- **[Authors and project attribution](AUTHORS.md)**
+- **[Version history](CHANGELOG.md)**
 
-- MATLAB with `uifigure` support
+## Tested development context
+
+The recorder was developed around this acquisition environment:
+
+- National Instruments **USB-6251 (BNC)**
+- MATLAB **R2024a**
 - MATLAB Data Acquisition Toolbox
-- National Instruments NI-DAQmx driver
-- a MATLAB-supported National Instruments DAQ device
-- Windows is recommended for NI-DAQmx laboratory deployments
+- National Instruments NI-DAQmx support through MATLAB
+- NI-DAQmx **23.8.0** observed on the development acquisition computer
+- Device ID observed as `dev2` on that computer
 
-### Tested development context
-
-The software was developed around an **NI USB-6251 (BNC)** workflow. Device IDs such as `dev2` are machine-specific; always use the ID returned by MATLAB on the acquisition computer.
-
-Check available NI hardware with:
+Device IDs are machine-specific. Never assume another computer will call the device `dev2`; use:
 
 ```matlab
+daqvendorlist
 daqlist("ni")
 ```
 
+The `ni` vendor should be operational and the expected DAQ should appear in `daqlist("ni")` before research acquisition.
+
+## Hardware summary
+
+For the NI USB-6251 BNC workflow, the typical minimum physical setup is:
+
+1. Windows workstation/laptop with MATLAB and a usable USB host port.
+2. NI USB-6251 BNC DAQ.
+3. Correct NI power supply or compliant external DC supply for the USB-6251.
+4. Hi-Speed USB 2.0 **Type-A to Type-B** cable between the computer and DAQ.
+5. One appropriate **BNC signal cable per analog source** being acquired.
+6. Sensor/transducer/amplifier hardware that produces an analog voltage compatible with the NI input.
+7. Appropriate isolation/signal conditioning for any human-connected physiological instrumentation.
+
+See [Hardware Setup](docs/HARDWARE_SETUP.md) and [Cabling and Wiring](docs/CABLING_AND_WIRING.md) before connecting signals.
+
+## Important physiological-signal safety note
+
+This is a **general-purpose research DAQ application**, not a medical device. Do not connect human-subject electrodes or other body-connected conductors directly to a general-purpose NI analog input. EMG and similar physiological signals should reach the NI device through an appropriate isolated/approved amplifier and signal-conditioning chain, with institutional electrical-safety procedures followed.
+
+The software does not create electrical isolation.
+
 ## Acquisition architecture
 
-The program uses MATLAB's modern Data Acquisition interface:
+The recorder uses MATLAB's modern Data Acquisition interface:
 
 ```matlab
 dq = daq("ni");
@@ -69,41 +104,33 @@ start(dq,"continuous");
 read(...,OutputFormat="Matrix");
 ```
 
-Each configured channel can define:
-
-- device ID;
-- physical channel ID;
-- descriptive label;
-- engineering unit;
-- scale;
-- offset;
-- terminal configuration;
-- automatic or manual Y-axis limits.
-
-Engineering conversion follows:
+Engineering conversion:
 
 ```text
-engineeringValue = rawVoltage × Scale + Offset
+calibratedValue = rawVoltage × Scale + CalibrationOffset
+finalValue      = calibratedValue + TareOffset
 ```
 
-## Quick start
+TARE therefore does **not** rewrite hardware/sensor calibration.
 
-1. Install MATLAB, Data Acquisition Toolbox, and NI-DAQmx.
-2. Connect and verify the NI device in NI MAX or the applicable NI configuration utility.
-3. In MATLAB, confirm the device appears with `daqlist("ni")`.
-4. Clone or download this repository.
-5. Make the repository the current MATLAB folder or add it to the MATLAB path.
-6. Run:
+## Baseline / TARE workflow
 
-```matlab
-NI_MultiChannel_Recorder_v4_02
-```
+A typical acquisition is:
 
-7. Confirm the default device or enter the correct device ID.
-8. Set the sample rate.
-9. Configure each enabled channel.
-10. Start acquisition and confirm each signal appears in its own window.
-11. Stop acquisition and save the recording using the GUI controls.
+1. Configure and verify channels.
+2. Press **START**.
+3. Establish a quiet/stable baseline condition.
+4. Open **BASELINE / TARE**.
+5. Choose a baseline duration (default 1 s).
+6. Select the channels to zero.
+7. Press **TARE SELECTED**.
+8. Verify that the displayed baseline is approximately zero.
+9. Continue the experimental task.
+10. Press **STOP** and save.
+
+If a channel has a pre-TARE baseline mean of `+0.437 L/s`, the recorder applies approximately `-0.437 L/s` as that channel's TARE correction.
+
+See [Baseline / TARE](docs/BASELINE_TARE.md) for details.
 
 ## Timing
 
@@ -113,50 +140,97 @@ The saved timing column is:
 SampleStartUTC_ms
 ```
 
-Elapsed time is used internally for visualization but is not saved as a second time column. This keeps exported recordings tied to a single UTC-based time reference.
+Elapsed time is used internally to draw live plots but is not exported as a second time variable. The timestamp is derived from the acquisition trigger time plus MATLAB/NI relative scan timestamps.
 
-For experiments requiring precise synchronization with external systems, independently validate timing and hardware latency. Software timestamps alone should not be assumed to represent exact physical event onset.
+For experiments requiring strict synchronization with another independent acquisition system, externally validate timing and hardware latency. Software-generated absolute timestamps should not automatically be treated as physical event-onset timestamps with sub-millisecond accuracy.
 
-## Configuration
+## Data output
 
-Version 4.0.2 uses its own persistent configuration file in the MATLAB preferences directory:
+### CSV
+
+CSV contains:
 
 ```text
-NI_MultiChannel_Recorder_v4_02_lastconfig.mat
+SampleStartUTC_ms,Channel_1,Channel_2,...
 ```
 
-This prevents configuration state from earlier recorder versions from being silently reused.
+Channel columns contain the final engineering signal after calibration and any active session TARE.
 
-## Data-safety recommendations
+### MAT
 
-- Verify channel labels and physical terminals before every acquisition session.
-- Run a short test recording before participant data collection.
-- Confirm scaling and units against the connected sensor/amplifier.
-- Save data to a controlled research location with routine backups.
-- Do not rely on the GUI as the sole copy of irreplaceable recordings.
-- Validate the complete acquisition chain before using the system in a study protocol.
+MAT output includes:
 
-## Project files
+- `sampleStartUTCms`
+- `rawData`
+- `scaledData`
+- `metadata`
+
+Metadata includes project/version provenance plus calibration and TARE information so the processing chain can be reconstructed.
+
+## Configuration behavior
+
+V4.0.3 stores its automatic persistent configuration separately in the MATLAB preference directory:
+
+```text
+NI_MultiChannel_Recorder_v4_03_lastconfig.mat
+```
+
+Reusable configuration includes channel setup and the preferred baseline duration. **Measured TARE offsets are intentionally not persisted between sessions.** A new acquisition session should establish a new baseline when required.
+
+## Sampling-rate note
+
+The NI USB-6251 family is a 16-bit M-Series multifunction DAQ. NI specifies up to 1.25 MS/s for a single analog-input channel and 1.00 MS/s aggregate for multichannel acquisition. Practical research sampling rates should be chosen from signal bandwidth, upstream filters/amplifiers, number of channels, storage needs, and experimental protocol rather than simply using the hardware maximum.
+
+## Recommended validation before real data collection
+
+Before using the recorder for irreplaceable participant data:
+
+1. Verify each physical cable maps to the expected MATLAB channel.
+2. Verify units and engineering Scale/Offset against the upstream device.
+3. Record a known reference/test signal.
+4. Confirm polarity.
+5. Confirm TARE produces the expected zero baseline.
+6. Confirm expected sampling rate in the GUI.
+7. Save a short test CSV and MAT file and reopen them.
+8. Confirm timestamps and row counts.
+9. Confirm independent plot windows update without dropped acquisition.
+10. Document the final hardware configuration used in the study.
+
+## Official references
+
+- MathWorks Data Acquisition Toolbox: <https://www.mathworks.com/help/daq/>
+- MathWorks NI-DAQmx support: <https://www.mathworks.com/hardware-support/nidaqmx.html>
+- NI USB-6251 product page and manuals/specifications: <https://www.ni.com/en/shop/hardware/voltage/model-usb-6251>
+- NI 62xx cable/accessory compatibility: <https://www.ni.com/en/support/documentation/cable-accessory-guide/daq-multifunction-i-o-cable-accessory-compatibility/main-page---daq-multifunction-i-o-cable-and-accessory-compatibil/62xx-models.html>
+
+## Project structure
 
 ```text
 NIDAQ/
+├── NI_MultiChannel_Recorder_v4_03.m
 ├── NI_MultiChannel_Recorder_v4_02.m
-├── NI_MultiChannel_Recorder_v4_01_README (1).txt
 ├── README.md
-└── LICENSE
+├── AUTHORS.md
+├── CHANGELOG.md
+├── CITATION.cff
+├── LICENSE
+└── docs/
+    ├── INSTALLATION.md
+    ├── HARDWARE_SETUP.md
+    ├── CABLING_AND_WIRING.md
+    ├── BASELINE_TARE.md
+    ├── TROUBLESHOOTING.md
+    └── EXAMPLE_CONFIGURATIONS.md
 ```
-
-## Research software notice
-
-This repository provides general-purpose research acquisition software. It is not a medical device and is not intended for diagnosis, treatment, or clinical decision-making.
-
-National Instruments, NI, NI-DAQmx, and related product names are trademarks of their respective owners. This project is independently developed and is not an official National Instruments product.
 
 ## Author
 
 **Vinay Shankar**  
-Website: https://tfaworld.org/  
-Email: vinay@tfaworld.org
+Email: [vinay@tfaworld.org](mailto:vinay@tfaworld.org)  
+Website: <https://tfaworld.org/>  
+GitHub: <https://github.com/vinayrshankar/NIDAQ>
+
+This recorder, V4 architecture, Baseline/TARE implementation, and project documentation are maintained by **Vinay Shankar**.
 
 ## License
 
