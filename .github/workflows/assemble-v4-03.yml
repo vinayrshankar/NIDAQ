@@ -1,0 +1,38 @@
+name: Assemble V4.0.3 source
+
+on:
+  push:
+    branches:
+      - v4.0.3-baseline-tare-docs
+    paths:
+      - tools/generate_v4_03.py
+      - .github/workflows/assemble-v4-03.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out update branch
+        uses: actions/checkout@v4
+        with:
+          ref: v4.0.3-baseline-tare-docs
+
+      - name: Generate exact V4.0.3 MATLAB source
+        run: python tools/generate_v4_03.py
+
+      - name: Commit generated MATLAB source
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add NI_MultiChannel_Recorder_v4_03.m
+          if git diff --cached --quiet; then
+            echo "Generated source already matches the branch."
+            exit 0
+          fi
+          git commit -m "Add NI Multi-Channel Recorder V4.0.3 baseline/TARE source"
+          git push origin HEAD:v4.0.3-baseline-tare-docs
