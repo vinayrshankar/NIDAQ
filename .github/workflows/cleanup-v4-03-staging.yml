@@ -1,0 +1,48 @@
+name: Clean V4.0.3 staging files
+
+on:
+  push:
+    branches:
+      - v4.0.3-baseline-tare-docs
+    paths:
+      - .github/workflows/cleanup-v4-03-staging.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out update branch
+        uses: actions/checkout@v4
+        with:
+          ref: v4.0.3-baseline-tare-docs
+          fetch-depth: 1
+
+      - name: Verify final source before cleanup
+        shell: bash
+        run: |
+          test -f NI_MultiChannel_Recorder_v4_03.m
+          test "$(wc -c < NI_MultiChannel_Recorder_v4_03.m)" -eq 51916
+          echo "272a66274c2eb5bed0eae2f2dac6f2e0fd533e6b81e1fb2a2edd63720f676670  NI_MultiChannel_Recorder_v4_03.m" | sha256sum -c -
+
+      - name: Remove temporary transfer and workflow files
+        shell: bash
+        run: |
+          rm -rf tools
+          rm -f .github/workflows/assemble-v4-03.yml
+          rm -f .github/workflows/assemble-v4-03-chunks.yml
+          rm -f .github/workflows/cleanup-v4-03-staging.yml
+          rmdir .github/workflows 2>/dev/null || true
+          rmdir .github 2>/dev/null || true
+
+      - name: Commit clean repository state
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Remove temporary V4.0.3 transfer helpers"
+          git push origin HEAD:v4.0.3-baseline-tare-docs
